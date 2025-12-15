@@ -629,12 +629,7 @@
             margin: 0 auto 15px;
         }
 
-        /* Share Button Styles - FIXED */
-        .share-container {
-            position: relative;
-            display: inline-block;
-        }
-
+        /* Share Button Styles - SIMPLIFIED */
         .share-btn {
             background-color: #25D366;
             color: white;
@@ -648,87 +643,12 @@
             gap: 8px;
             transition: all 0.3s ease;
             animation: pulse 2s infinite;
-            z-index: 10;
-            position: relative;
         }
 
         .share-btn:hover {
             background-color: #128C7E;
             transform: translateY(-2px);
             animation: none;
-        }
-
-        .share-options {
-            position: absolute;
-            bottom: 100%; /* Changed from top: 100% to bottom: 100% */
-            right: 0;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-            padding: 15px;
-            min-width: 220px;
-            z-index: 1000;
-            display: none;
-            animation: fadeIn 0.3s ease;
-            margin-bottom: 10px; /* Changed from margin-top to margin-bottom */
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .share-options.show {
-            display: block;
-        }
-
-        .share-options::before {
-            content: '';
-            position: absolute;
-            bottom: -8px; /* Changed from top: -8px to bottom: -8px */
-            right: 20px;
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 8px solid white; /* Changed from border-bottom to border-top */
-            border-bottom: none;
-        }
-
-        .share-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 8px;
-        }
-
-        .share-option:last-child {
-            margin-bottom: 0;
-        }
-
-        .share-option:hover {
-            background-color: #f8f9fa;
-            transform: translateX(5px);
-        }
-
-        .share-option-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-        }
-
-        .share-option:nth-child(1) .share-option-icon {
-            background-color: #3498db;
-        }
-
-        .share-option:nth-child(2) .share-option-icon {
-            background-color: #9b59b6;
         }
 
         .share-success {
@@ -802,16 +722,6 @@
                 flex-direction: column;
                 text-align: center;
                 gap: 20px;
-            }
-            
-            .share-options {
-                right: auto;
-                left: 0;
-            }
-            
-            .share-options::before {
-                right: auto;
-                left: 20px;
             }
         }
     </style>
@@ -1063,7 +973,7 @@
                             2. Answer the question by clicking an option<br>
                             3. Check your answer with "Show Answer"<br>
                             4. Get a new question with "Next Question"<br>
-                            5. Track your progress with the stats
+                            5. Share questions with friends on WhatsApp
                         </p>
                     </div>
                 </div>
@@ -1087,27 +997,9 @@
                             
                             <div class="controls">
                                 <button id="showAnswerBtn" class="btn-primary">Show Answer</button>
-                                <div class="share-container">
-                                    <button class="share-btn" id="shareBtn">
-                                        <span>📱</span> Share Question
-                                    </button>
-                                    <div class="share-options" id="shareOptions">
-                                        <div class="share-option" data-type="question">
-                                            <div class="share-option-icon">❓</div>
-                                            <div>
-                                                <strong>Share Question Only</strong>
-                                                <small>Question + Options</small>
-                                            </div>
-                                        </div>
-                                        <div class="share-option" data-type="explanation">
-                                            <div class="share-option-icon">📚</div>
-                                            <div>
-                                                <strong>Share with Solution</strong>
-                                                <small>Question + Explanation</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button class="share-btn" id="shareBtn">
+                                    <span>📱</span> Share on WhatsApp
+                                </button>
                                 <button id="nextQuestionBtn" class="btn-secondary">Next Question</button>
                             </div>
                             
@@ -1180,7 +1072,6 @@
         const questionTopicBadge = document.getElementById('questionTopicBadge');
         const currentQuestionTopic = document.getElementById('currentQuestionTopic');
         const shareBtn = document.getElementById('shareBtn');
-        const shareOptions = document.getElementById('shareOptions');
         const shareSuccess = document.getElementById('shareSuccess');
 
         // API endpoints
@@ -1211,84 +1102,29 @@
             nextQuestionBtn.addEventListener('click', loadQuestion);
             
             // Set up share functionality
-            initShareFunctionality();
+            shareBtn.addEventListener('click', shareToWhatsApp);
         }
 
-        // Initialize share functionality
-        function initShareFunctionality() {
-            // Toggle share options on button click
-            shareBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                // Toggle the share options
-                const isShowing = shareOptions.classList.contains('show');
-                // Close all other share options first
-                document.querySelectorAll('.share-options').forEach(option => {
-                    option.classList.remove('show');
-                });
-                // Toggle this one
-                if (!isShowing) {
-                    shareOptions.classList.add('show');
-                }
-                
-                // Prevent the click from bubbling to document
-                e.stopPropagation();
-            });
+        // Create WhatsApp share text
+        function createWhatsAppShareText(includeAnswer = false) {
+            if (!currentQuestion) {
+                return '';
+            }
             
-            // Handle share option clicks
-            document.querySelectorAll('.share-option').forEach(option => {
-                option.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const shareType = this.getAttribute('data-type');
-                    shareQuestion(shareType);
-                    shareOptions.classList.remove('show');
-                });
-            });
+            const topicName = getDisplayTopicName(currentTopic);
             
-            // Close share options when clicking outside
-            document.addEventListener('click', function(e) {
-                // Check if click is outside share options and share button
-                if (!shareBtn.contains(e.target) && !shareOptions.contains(e.target)) {
-                    shareOptions.classList.remove('show');
-                }
-            });
-            
-            // Also close when pressing Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    shareOptions.classList.remove('show');
-                }
-            });
-        }
-
-        // Build share text for WhatsApp
-        function buildShareText(shareType, topicName) {
-            let shareText = '';
-            
-            // Define emoji variables for consistent usage
+            // Use emoji constants for WhatsApp compatibility
             const emojiQuestion = "❓";
             const emojiTopic = "📚";
             const emojiCheck = "✅";
             const emojiBook = "📖";
             const emojiBrain = "🧠";
-            const emojiTarget = "🎯";
             const emojiLink = "🔗";
             
-            if (shareType === 'question') {
-                // Share question only (without answer/explanation)
-                shareText = `${emojiQuestion} *Aptitude Practice Question* ${emojiQuestion}\n\n`;
-                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
-                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
-                
-                if (currentQuestion.options && currentQuestion.options.length > 0) {
-                    shareText += `*Options:*\n`;
-                    currentQuestion.options.forEach((option, index) => {
-                        shareText += `${index + 1}. ${option}\n`;
-                    });
-                }
-                
-                shareText += `\nTest your aptitude skills! ${emojiBrain}`;
-            } else {
-                // Share question with explanation
+            let shareText = '';
+            
+            if (includeAnswer) {
+                // Share with answer and explanation
                 shareText = `${emojiBook} *Aptitude Question with Solution* ${emojiBook}\n\n`;
                 shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
                 shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
@@ -1302,60 +1138,49 @@
                 
                 shareText += `\n${emojiCheck} *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
                 shareText += `${emojiBook} *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
-                shareText += `Practice more at Aptitude Practice Platform! ${emojiTarget}`;
+            } else {
+                // Share question only
+                shareText = `${emojiQuestion} *Aptitude Practice Question* ${emojiQuestion}\n\n`;
+                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
+                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
+                
+                if (currentQuestion.options && currentQuestion.options.length > 0) {
+                    shareText += `*Options:*\n`;
+                    currentQuestion.options.forEach((option, index) => {
+                        shareText += `${index + 1}. ${option}\n`;
+                    });
+                }
+                
+                shareText += `\nTest your aptitude skills! ${emojiBrain}\n\n`;
             }
             
             // Add platform URL
-            shareText += `\n\n${emojiLink} *Practice More:* https://aptitude-practice-platform-by-shubh.vercel.app/`;
+            shareText += `${emojiLink} *Practice More:* https://aptitude-practice-platform-by-shubh.vercel.app/`;
             
             return shareText;
         }
 
-        // Clean text for WhatsApp sharing
-        function cleanTextForWhatsApp(text) {
-            // Remove any problematic characters but keep emojis and basic formatting
-            return text
-                .replace(/\*\*/g, '*') // Fix double asterisks
-                .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove multiple blank lines
-                .trim();
-        }
-
-        // Share question function with multiple fallback methods
-        function shareQuestion(shareType) {
+        // Share to WhatsApp function
+        function shareToWhatsApp() {
             if (!currentQuestion) {
                 showShareSuccess('No question loaded yet!');
                 return;
             }
             
-            const topicName = getDisplayTopicName(currentTopic);
-            let shareText = buildShareText(shareType, topicName);
+            // Check if answer has been shown
+            const hasAnswerShown = explanationContainer.classList.contains('show');
+            
+            // Create share text - include answer if shown, otherwise just question
+            const shareText = createWhatsAppShareText(hasAnswerShown);
             
             // Clean the text for WhatsApp
-            shareText = cleanTextForWhatsApp(shareText);
+            const cleanText = shareText
+                .replace(/\*\*/g, '*')
+                .replace(/\n\s*\n\s*\n/g, '\n\n')
+                .trim();
             
-            // Try Web Share API first (on mobile devices)
-            if (navigator.share) {
-                navigator.share({
-                    title: `Aptitude Practice: ${topicName}`,
-                    text: shareText.replace(/\*/g, ''), // Remove asterisks for cleaner sharing
-                    url: 'https://aptitude-practice-platform-by-shubh.vercel.app/'
-                }).then(() => {
-                    showShareSuccess('Shared successfully!');
-                }).catch(err => {
-                    console.log('Web Share cancelled or failed:', err);
-                    // Fallback to WhatsApp sharing
-                    fallbackWhatsAppShare(shareText);
-                });
-            } else {
-                // Fallback to WhatsApp sharing
-                fallbackWhatsAppShare(shareText);
-            }
-        }
-
-        // Fallback WhatsApp sharing method
-        function fallbackWhatsAppShare(text) {
-            // Encode text for URL
-            const encodedText = encodeURIComponent(text);
+            // Encode for URL
+            const encodedText = encodeURIComponent(cleanText);
             
             // Create WhatsApp URLs
             const whatsappUrls = {
@@ -1368,28 +1193,21 @@
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
             if (isMobile) {
-                // Try to open WhatsApp app
-                const link = document.createElement('a');
-                link.href = whatsappUrls.app;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.style.display = 'none';
-                
-                document.body.appendChild(link);
-                
-                // Add timeout to check if app opened
-                const timeout = setTimeout(() => {
-                    // If still on page after 500ms, try web API
-                    window.open(whatsappUrls.api, '_blank', 'noopener,noreferrer');
-                }, 500);
-                
-                link.click();
-                
-                // Clean up
-                setTimeout(() => {
-                    document.body.removeChild(link);
-                    clearTimeout(timeout);
-                }, 1000);
+                // On mobile, try to open WhatsApp app
+                try {
+                    // First try to open WhatsApp app
+                    window.location.href = whatsappUrls.app;
+                    
+                    // If still on page after 1 second, open web version
+                    setTimeout(() => {
+                        if (!document.hidden) {
+                            window.open(whatsappUrls.api, '_blank');
+                        }
+                    }, 1000);
+                } catch (e) {
+                    // Fallback to web version
+                    window.open(whatsappUrls.api, '_blank');
+                }
             } else {
                 // On desktop, use WhatsApp Web
                 window.open(whatsappUrls.api, '_blank', 'noopener,noreferrer');
@@ -1460,9 +1278,6 @@
             options.forEach(option => {
                 option.classList.remove('selected', 'correct', 'incorrect');
             });
-            
-            // Close share options when loading new question
-            shareOptions.classList.remove('show');
             
             try {
                 // Fetch question from API
@@ -1595,9 +1410,6 @@
             
             // Show explanation
             explanationContainer.classList.add('show');
-            
-            // Close share options if open
-            shareOptions.classList.remove('show');
         }
 
         // Update statistics display
