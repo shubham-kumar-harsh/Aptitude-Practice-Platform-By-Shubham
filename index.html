@@ -2,26 +2,17 @@
 <html lang="en">
 <head>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-CKZB26VTQ7"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-CKZB26VTQ7');
-</script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CKZB26VTQ7"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-CKZB26VTQ7');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aptitude Practice Platform</title>
     <style>
-        <!-- Google tag (gtag.js) -->
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-CKZB26VTQ7');
-</script>
         /* Common Styles */
         * {
             margin: 0;
@@ -1136,6 +1127,13 @@
         </div>
     </div>
 
+    <!-- Hidden sharing form for better WhatsApp compatibility -->
+    <div style="display: none;">
+        <form id="whatsappShareForm" action="https://api.whatsapp.com/send" method="GET" target="_blank">
+            <input type="hidden" name="text" id="whatsappShareText">
+        </form>
+    </div>
+
     <script>
         // Page navigation functions
         function showHomePage() {
@@ -1185,6 +1183,8 @@
         const shareBtn = document.getElementById('shareBtn');
         const shareOptions = document.getElementById('shareOptions');
         const shareSuccess = document.getElementById('shareSuccess');
+        const whatsappShareForm = document.getElementById('whatsappShareForm');
+        const whatsappShareText = document.getElementById('whatsappShareText');
 
         // API endpoints
         const apiEndpoints = {
@@ -1242,7 +1242,67 @@
             });
         }
 
-        // Share question function
+        // Build share text for WhatsApp
+        function buildShareText(shareType, topicName) {
+            let shareText = '';
+            
+            // Define emoji variables for consistent usage
+            const emojiQuestion = "❓";
+            const emojiTopic = "📚";
+            const emojiCheck = "✅";
+            const emojiBook = "📖";
+            const emojiBrain = "🧠";
+            const emojiTarget = "🎯";
+            const emojiLink = "🔗";
+            
+            if (shareType === 'question') {
+                // Share question only (without answer/explanation)
+                shareText = `${emojiQuestion} *Aptitude Practice Question* ${emojiQuestion}\n\n`;
+                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
+                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
+                
+                if (currentQuestion.options && currentQuestion.options.length > 0) {
+                    shareText += `*Options:*\n`;
+                    currentQuestion.options.forEach((option, index) => {
+                        shareText += `${index + 1}. ${option}\n`;
+                    });
+                }
+                
+                shareText += `\nTest your aptitude skills! ${emojiBrain}`;
+            } else {
+                // Share question with explanation
+                shareText = `${emojiBook} *Aptitude Question with Solution* ${emojiBook}\n\n`;
+                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
+                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
+                
+                if (currentQuestion.options && currentQuestion.options.length > 0) {
+                    shareText += `*Options:*\n`;
+                    currentQuestion.options.forEach((option, index) => {
+                        shareText += `${index + 1}. ${option}\n`;
+                    });
+                }
+                
+                shareText += `\n${emojiCheck} *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
+                shareText += `${emojiBook} *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
+                shareText += `Practice more at Aptitude Practice Platform! ${emojiTarget}`;
+            }
+            
+            // Add platform URL
+            shareText += `\n\n${emojiLink} *Practice More:* https://aptitude-practice-platform-by-shubh.vercel.app/`;
+            
+            return shareText;
+        }
+
+        // Clean text for WhatsApp sharing
+        function cleanTextForWhatsApp(text) {
+            // Remove any problematic characters but keep emojis and basic formatting
+            return text
+                .replace(/\*\*/g, '*') // Fix double asterisks
+                .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove multiple blank lines
+                .trim();
+        }
+
+        // Share question function with multiple fallback methods
         function shareQuestion(shareType) {
             if (!currentQuestion) {
                 showShareSuccess('No question to share!');
@@ -1250,52 +1310,74 @@
             }
             
             const topicName = getDisplayTopicName(currentTopic);
-            let shareText = '';
+            let shareText = buildShareText(shareType, topicName);
             
-            if (shareType === 'question') {
-                // Share question only (without answer/explanation)
-                shareText = `🤔 *Aptitude Practice Question* 🤔\n\n`;
-                shareText += `*Topic:* ${topicName}\n\n`;
-                shareText += `*Question:* ${currentQuestion.question}\n\n`;
-                
-                if (currentQuestion.options && currentQuestion.options.length > 0) {
-                    shareText += `*Options:*\n`;
-                    currentQuestion.options.forEach((option, index) => {
-                        shareText += `${index + 1}. ${option}\n`;
-                    });
-                }
-                
-                shareText += `\nTest your aptitude skills! 🧠`;
+            // Clean the text for WhatsApp
+            shareText = cleanTextForWhatsApp(shareText);
+            
+            // Try Web Share API first (on mobile devices)
+            if (navigator.share) {
+                navigator.share({
+                    title: `Aptitude Practice: ${topicName}`,
+                    text: shareText.replace(/\*/g, ''), // Remove asterisks for cleaner sharing
+                    url: 'https://aptitude-practice-platform-by-shubh.vercel.app/'
+                }).then(() => {
+                    showShareSuccess('Shared successfully!');
+                }).catch(err => {
+                    console.log('Web Share cancelled or failed:', err);
+                    // Fallback to WhatsApp sharing
+                    fallbackWhatsAppShare(shareText);
+                });
             } else {
-                // Share question with explanation
-                shareText = `📚 *Aptitude Question with Solution* 📚\n\n`;
-                shareText += `*Topic:* ${topicName}\n\n`;
-                shareText += `*Question:* ${currentQuestion.question}\n\n`;
+                // Fallback to WhatsApp sharing
+                fallbackWhatsAppShare(shareText);
+            }
+        }
+
+        // Fallback WhatsApp sharing method
+        function fallbackWhatsAppShare(text) {
+            // Encode text for URL
+            const encodedText = encodeURIComponent(text);
+            
+            // Create WhatsApp URLs
+            const whatsappUrls = {
+                app: `whatsapp://send?text=${encodedText}`, // WhatsApp mobile app
+                api: `https://api.whatsapp.com/send?text=${encodedText}`, // WhatsApp web API
+                web: `https://web.whatsapp.com/send?text=${encodedText}` // WhatsApp Web
+            };
+            
+            // Try to detect if user is on mobile
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // Try to open WhatsApp app
+                const link = document.createElement('a');
+                link.href = whatsappUrls.app;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.style.display = 'none';
                 
-                if (currentQuestion.options && currentQuestion.options.length > 0) {
-                    shareText += `*Options:*\n`;
-                    currentQuestion.options.forEach((option, index) => {
-                        shareText += `${index + 1}. ${option}\n`;
-                    });
-                }
+                document.body.appendChild(link);
                 
-                shareText += `\n✅ *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
-                shareText += `📖 *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
-                shareText += `Practice more at Aptitude Practice Platform! 🎯`;
+                // Add timeout to check if app opened
+                const timeout = setTimeout(() => {
+                    // If still on page after 500ms, try web API
+                    window.open(whatsappUrls.api, '_blank', 'noopener,noreferrer');
+                }, 500);
+                
+                link.click();
+                
+                // Clean up
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    clearTimeout(timeout);
+                }, 1000);
+            } else {
+                // On desktop, use WhatsApp Web
+                window.open(whatsappUrls.api, '_blank', 'noopener,noreferrer');
             }
             
-            // Add platform URL
-            shareText += `\n\n🔗 *Practice More:* ${window.location.href}`;
-            
-            // Encode for WhatsApp
-            const encodedText = encodeURIComponent(shareText);
-            const whatsappUrl = `https://wa.me/?text=${encodedText}`;
-            
-            // Open WhatsApp share
-            window.open(whatsappUrl, '_blank');
-            
-            // Show success message
-            showShareSuccess('Question shared to WhatsApp!');
+            showShareSuccess('Opening WhatsApp...');
         }
 
         // Show share success message
@@ -1545,8 +1627,4 @@
         }
     </script>
 </body>
-
 </html>
-
-
-
