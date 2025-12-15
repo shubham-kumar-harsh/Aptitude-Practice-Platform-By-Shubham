@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <!-- Google tag (gtag.js) -->
-    <meta name="google-adsense-account" content="ca-pub-5417822588131141">
+    <meta name="google-adsense-account" content="ca-pub-5417822588131141"> 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-CKZB26VTQ7"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -630,7 +630,12 @@
             margin: 0 auto 15px;
         }
 
-        /* Share Button Styles - SIMPLIFIED */
+        /* Share Options Styles */
+        .share-container {
+            position: relative;
+            display: inline-block;
+        }
+
         .share-btn {
             background-color: #25D366;
             color: white;
@@ -650,6 +655,68 @@
             background-color: #128C7E;
             transform: translateY(-2px);
             animation: none;
+        }
+
+        .share-options {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            padding: 15px;
+            min-width: 280px;
+            z-index: 1000;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .share-options.show {
+            display: block;
+        }
+
+        .share-options::before {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            right: 20px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid white;
+        }
+
+        .share-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+
+        .share-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .share-option:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+
+        .share-option-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
         }
 
         .share-success {
@@ -723,6 +790,16 @@
                 flex-direction: column;
                 text-align: center;
                 gap: 20px;
+            }
+            
+            .share-options {
+                right: auto;
+                left: 0;
+            }
+            
+            .share-options::before {
+                right: auto;
+                left: 20px;
             }
         }
     </style>
@@ -998,9 +1075,27 @@
                             
                             <div class="controls">
                                 <button id="showAnswerBtn" class="btn-primary">Show Answer</button>
-                                <button class="share-btn" id="shareBtn">
-                                    <span>📱</span> Share on WhatsApp
-                                </button>
+                                <div class="share-container">
+                                    <button class="share-btn" id="shareBtn">
+                                        <span>📱</span> Share Question
+                                    </button>
+                                    <div class="share-options" id="shareOptions">
+                                        <div class="share-option" data-type="question-only">
+                                            <div class="share-option-icon">❓</div>
+                                            <div>
+                                                <strong>Question + Options</strong>
+                                                <small>Share without answer (for challenges)</small>
+                                            </div>
+                                        </div>
+                                        <div class="share-option" data-type="with-solution">
+                                            <div class="share-option-icon">📚</div>
+                                            <div>
+                                                <strong>Question + Solution</strong>
+                                                <small>Share with answer & explanation</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <button id="nextQuestionBtn" class="btn-secondary">Next Question</button>
                             </div>
                             
@@ -1055,6 +1150,9 @@
         let selectedOption = null;
         let questionCount = 0;
         let correctCount = 0;
+        let currentQuestionId = null; // To track current question for direct links
+        let questionCache = {}; // Cache for faster loading
+        let preloadedQuestion = null; // Preload next question
 
         // DOM Elements
         const topicItems = document.querySelectorAll('.topic-item');
@@ -1073,9 +1171,10 @@
         const questionTopicBadge = document.getElementById('questionTopicBadge');
         const currentQuestionTopic = document.getElementById('currentQuestionTopic');
         const shareBtn = document.getElementById('shareBtn');
+        const shareOptions = document.getElementById('shareOptions');
         const shareSuccess = document.getElementById('shareSuccess');
 
-        // API endpoints
+        // API endpoints with fallbacks
         const apiEndpoints = {
             'Random': 'https://aptitude-api.vercel.app/Random',
             'MixtureAndAlligation': 'https://aptitude-api.vercel.app/MixtureAndAlligation',
@@ -1088,47 +1187,208 @@
             'SimpleInterest': 'https://aptitude-api.vercel.app/SimpleInterest'
         };
 
+        // List of interactive emojis for group interaction
+        const interactiveEmojis = [
+            "🤔", "🧠", "💡", "🎯", "⭐", "🔥", "🚀", "💯", "👍", "👎",
+            "😊", "😎", "🤯", "🎉", "🏆", "📈", "💪", "✨", "🌟", "✅"
+        ];
+
+        // Get a random interactive emoji
+        function getRandomInteractiveEmoji() {
+            return interactiveEmojis[Math.floor(Math.random() * interactiveEmojis.length)];
+        }
+
+        // Generate a unique question ID
+        function generateQuestionId() {
+            return 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Store current question data for direct access
+        function storeQuestionForDirectAccess(questionData, includeAnswer = true) {
+            currentQuestionId = generateQuestionId();
+            
+            // Store in localStorage for direct access
+            const questionDataToStore = {
+                id: currentQuestionId,
+                question: questionData.question,
+                options: questionData.options || [],
+                answer: includeAnswer ? (questionData.answer || '') : '',
+                explanation: includeAnswer ? (questionData.explanation || '') : '',
+                topic: currentTopic,
+                timestamp: Date.now(),
+                hasAnswer: includeAnswer
+            };
+            
+            localStorage.setItem(currentQuestionId, JSON.stringify(questionDataToStore));
+            
+            // Cleanup old questions (keep only last 50)
+            cleanupOldQuestions();
+            
+            return currentQuestionId;
+        }
+
+        // Cleanup old questions from localStorage
+        function cleanupOldQuestions() {
+            const keys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('q_')) {
+                    keys.push(key);
+                }
+            }
+            
+            // If we have more than 50 questions, remove the oldest ones
+            if (keys.length > 50) {
+                keys.sort((a, b) => {
+                    const dataA = JSON.parse(localStorage.getItem(a));
+                    const dataB = JSON.parse(localStorage.getItem(b));
+                    return dataA.timestamp - dataB.timestamp;
+                });
+                
+                // Remove the oldest ones
+                for (let i = 0; i < keys.length - 50; i++) {
+                    localStorage.removeItem(keys[i]);
+                }
+            }
+        }
+
+        // Check if there's a direct link request
+        function checkForDirectLink() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const questionId = urlParams.get('qid');
+            
+            if (questionId) {
+                // Try to load from localStorage
+                const storedQuestion = localStorage.getItem(questionId);
+                if (storedQuestion) {
+                    try {
+                        const questionData = JSON.parse(storedQuestion);
+                        currentQuestion = questionData;
+                        currentTopic = questionData.topic || 'Random';
+                        currentQuestionId = questionId;
+                        
+                        // Update UI
+                        displayQuestion(questionData);
+                        
+                        // If question has answer, show it
+                        if (questionData.hasAnswer) {
+                            showAnswer(); // Automatically show answer for direct links
+                        }
+                        
+                        // Update stats
+                        questionCount++;
+                        updateStats();
+                        
+                        // Update topic selection
+                        selectTopic(currentTopic);
+                        
+                        return true;
+                    } catch (e) {
+                        console.error('Error loading stored question:', e);
+                    }
+                }
+            }
+            return false;
+        }
+
         // Initialize the app when practice page loads
         function initPracticePage() {
-            // Set up event listeners for topic selection
-            topicItems.forEach(item => {
-                item.addEventListener('click', function() {
-                    const topic = this.getAttribute('data-topic');
-                    selectTopic(topic);
+            // Check for direct link first
+            const hasDirectLink = checkForDirectLink();
+            
+            if (!hasDirectLink) {
+                // Set up event listeners for topic selection
+                topicItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        const topic = this.getAttribute('data-topic');
+                        selectTopic(topic);
+                    });
+                });
+                
+                // Set up event listeners for buttons
+                showAnswerBtn.addEventListener('click', showAnswer);
+                nextQuestionBtn.addEventListener('click', loadQuestion);
+                
+                // Set up share functionality
+                initShareFunctionality();
+                
+                // Load initial question
+                loadQuestion();
+                
+                // Preload next question
+                setTimeout(preloadNextQuestion, 100);
+            }
+        }
+
+        // Initialize share functionality
+        function initShareFunctionality() {
+            // Toggle share options on button click
+            shareBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // Toggle the share options
+                const isShowing = shareOptions.classList.contains('show');
+                // Close all other share options first
+                document.querySelectorAll('.share-options').forEach(option => {
+                    option.classList.remove('show');
+                });
+                // Toggle this one
+                if (!isShowing) {
+                    shareOptions.classList.add('show');
+                }
+                
+                // Prevent the click from bubbling to document
+                e.stopPropagation();
+            });
+            
+            // Handle share option clicks
+            document.querySelectorAll('.share-option').forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const shareType = this.getAttribute('data-type');
+                    shareQuestion(shareType);
+                    shareOptions.classList.remove('show');
                 });
             });
             
-            // Set up event listeners for buttons
-            showAnswerBtn.addEventListener('click', showAnswer);
-            nextQuestionBtn.addEventListener('click', loadQuestion);
+            // Close share options when clicking outside
+            document.addEventListener('click', function(e) {
+                // Check if click is outside share options and share button
+                if (!shareBtn.contains(e.target) && !shareOptions.contains(e.target)) {
+                    shareOptions.classList.remove('show');
+                }
+            });
             
-            // Set up share functionality
-            shareBtn.addEventListener('click', shareToWhatsApp);
+            // Also close when pressing Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    shareOptions.classList.remove('show');
+                }
+            });
         }
 
         // Create WhatsApp share text
-        function createWhatsAppShareText(includeAnswer = false) {
+        function createWhatsAppShareText(shareType) {
             if (!currentQuestion) {
                 return '';
             }
             
             const topicName = getDisplayTopicName(currentTopic);
+            const interactiveEmoji = getRandomInteractiveEmoji();
             
-            // Use emoji constants for WhatsApp compatibility
-            const emojiQuestion = "❓";
-            const emojiTopic = "📚";
-            const emojiCheck = "✅";
-            const emojiBook = "📖";
-            const emojiBrain = "🧠";
-            const emojiLink = "🔗";
+            // Base URL for direct access
+            const baseUrl = window.location.origin + window.location.pathname;
             
             let shareText = '';
+            let questionId = '';
             
-            if (includeAnswer) {
-                // Share with answer and explanation
-                shareText = `${emojiBook} *Aptitude Question with Solution* ${emojiBook}\n\n`;
-                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
-                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
+            if (shareType === 'question-only') {
+                // Share question + options without answer
+                questionId = storeQuestionForDirectAccess(currentQuestion, false);
+                const directLink = `${baseUrl}?qid=${questionId}`;
+                
+                shareText = `${interactiveEmoji} *Aptitude Challenge!* ${interactiveEmoji}\n\n`;
+                shareText += `📚 *Topic:* ${topicName}\n\n`;
+                shareText += `❓ *Question:* ${currentQuestion.question}\n\n`;
                 
                 if (currentQuestion.options && currentQuestion.options.length > 0) {
                     shareText += `*Options:*\n`;
@@ -1137,13 +1397,17 @@
                     });
                 }
                 
-                shareText += `\n${emojiCheck} *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
-                shareText += `${emojiBook} *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
-            } else {
-                // Share question only
-                shareText = `${emojiQuestion} *Aptitude Practice Question* ${emojiQuestion}\n\n`;
-                shareText += `${emojiTopic} *Topic:* ${topicName}\n\n`;
-                shareText += `${emojiQuestion} *Question:* ${currentQuestion.question}\n\n`;
+                shareText += `\n💭 *What's your answer?* Reply with your choice!\n\n`;
+                shareText += `🔗 *Check answer later:* ${directLink}`;
+                
+            } else if (shareType === 'with-solution') {
+                // Share question + options + answer + explanation
+                questionId = storeQuestionForDirectAccess(currentQuestion, true);
+                const directLink = `${baseUrl}?qid=${questionId}`;
+                
+                shareText = `📚 *Aptitude Question with Solution* 📚\n\n`;
+                shareText += `📖 *Topic:* ${topicName}\n\n`;
+                shareText += `❓ *Question:* ${currentQuestion.question}\n\n`;
                 
                 if (currentQuestion.options && currentQuestion.options.length > 0) {
                     shareText += `*Options:*\n`;
@@ -1152,27 +1416,23 @@
                     });
                 }
                 
-                shareText += `\nTest your aptitude skills! ${emojiBrain}\n\n`;
+                shareText += `\n✅ *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
+                shareText += `📖 *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
+                shareText += `🔗 *Practice more questions:* ${baseUrl}`;
             }
-            
-            // Add platform URL
-            shareText += `${emojiLink} *Practice More:* https://aptitude-practice-platform-by-shubh.vercel.app/`;
             
             return shareText;
         }
 
         // Share to WhatsApp function
-        function shareToWhatsApp() {
+        function shareQuestion(shareType) {
             if (!currentQuestion) {
                 showShareSuccess('No question loaded yet!');
                 return;
             }
             
-            // Check if answer has been shown
-            const hasAnswerShown = explanationContainer.classList.contains('show');
-            
-            // Create share text - include answer if shown, otherwise just question
-            const shareText = createWhatsAppShareText(hasAnswerShown);
+            // Create share text
+            const shareText = createWhatsAppShareText(shareType);
             
             // Clean the text for WhatsApp
             const cleanText = shareText
@@ -1193,20 +1453,19 @@
             // Try to detect if user is on mobile
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
+            // Try to open WhatsApp
             if (isMobile) {
                 // On mobile, try to open WhatsApp app
                 try {
-                    // First try to open WhatsApp app
                     window.location.href = whatsappUrls.app;
                     
-                    // If still on page after 1 second, open web version
+                    // Fallback if still on page
                     setTimeout(() => {
                         if (!document.hidden) {
                             window.open(whatsappUrls.api, '_blank');
                         }
                     }, 1000);
                 } catch (e) {
-                    // Fallback to web version
                     window.open(whatsappUrls.api, '_blank');
                 }
             } else {
@@ -1247,6 +1506,9 @@
             
             // Load a question from the new topic
             loadQuestion();
+            
+            // Preload next question
+            preloadNextQuestion();
         }
 
         // Get display name for topic
@@ -1266,7 +1528,23 @@
             return displayNames[topic] || topic;
         }
 
-        // Load a question from the API
+        // Preload next question in background
+        async function preloadNextQuestion() {
+            try {
+                const response = await fetch(apiEndpoints[currentTopic], {
+                    signal: AbortSignal.timeout(5000) // 5 second timeout
+                });
+                
+                if (response.ok) {
+                    preloadedQuestion = await response.json();
+                }
+            } catch (error) {
+                // Silently fail - preloading is optional
+                console.log('Preloading failed (optional):', error.message);
+            }
+        }
+
+        // Fast load question with caching and preloading
         async function loadQuestion() {
             // Show loading state
             loadingElement.style.display = 'block';
@@ -1280,15 +1558,58 @@
                 option.classList.remove('selected', 'correct', 'incorrect');
             });
             
+            // Close share options
+            shareOptions.classList.remove('show');
+            
+            // Try to use preloaded question first (fastest)
+            if (preloadedQuestion && Math.random() < 0.7) { // 70% chance to use preloaded
+                currentQuestion = preloadedQuestion;
+                displayQuestion(currentQuestion);
+                questionCount++;
+                updateStats();
+                
+                // Preload next question in background
+                setTimeout(preloadNextQuestion, 100);
+                return;
+            }
+            
+            // If no preloaded question or we want fresh data, fetch new
             try {
-                // Fetch question from API
-                const response = await fetch(apiEndpoints[currentTopic]);
+                // Create cache key
+                const cacheKey = `${currentTopic}_${Date.now() % 10000}`; // Cache for short time
                 
-                if (!response.ok) {
-                    throw new Error(`API request failed with status ${response.status}`);
+                // Check cache first
+                if (questionCache[cacheKey]) {
+                    currentQuestion = questionCache[cacheKey];
+                } else {
+                    // Fetch with timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+                    
+                    const response = await fetch(apiEndpoints[currentTopic], {
+                        signal: controller.signal,
+                        cache: 'no-cache' // Always fresh but fast
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`API request failed with status ${response.status}`);
+                    }
+                    
+                    currentQuestion = await response.json();
+                    
+                    // Cache the result
+                    questionCache[cacheKey] = currentQuestion;
+                    
+                    // Clean old cache entries
+                    if (Object.keys(questionCache).length > 20) {
+                        const keys = Object.keys(questionCache);
+                        for (let i = 0; i < keys.length - 20; i++) {
+                            delete questionCache[keys[i]];
+                        }
+                    }
                 }
-                
-                currentQuestion = await response.json();
                 
                 // Update question count
                 questionCount++;
@@ -1299,19 +1620,34 @@
                 // Update stats
                 updateStats();
                 
+                // Preload next question in background
+                setTimeout(preloadNextQuestion, 100);
+                
             } catch (error) {
                 console.error('Error fetching question:', error);
                 
-                // Show error state
+                // Show error state with retry option
                 loadingElement.innerHTML = `
                     <div style="color: #e74c3c; font-size: 3rem; margin-bottom: 15px;">⚠️</div>
                     <p>Failed to load question from API</p>
                     <p style="font-size: 0.9rem; margin-top: 10px;">Error: ${error.message}</p>
                     <button id="retryBtn" class="btn-primary" style="margin-top: 20px;">Retry</button>
+                    <button id="useCachedBtn" class="btn-secondary" style="margin-top: 10px;">Use Cached Question</button>
                 `;
                 
                 // Add retry button listener
                 document.getElementById('retryBtn').addEventListener('click', loadQuestion);
+                document.getElementById('useCachedBtn').addEventListener('click', function() {
+                    // Try to use any cached question
+                    const cachedKeys = Object.keys(questionCache);
+                    if (cachedKeys.length > 0) {
+                        const randomKey = cachedKeys[Math.floor(Math.random() * cachedKeys.length)];
+                        currentQuestion = questionCache[randomKey];
+                        displayQuestion(currentQuestion);
+                        questionCount++;
+                        updateStats();
+                    }
+                });
             }
         }
 
@@ -1411,6 +1747,9 @@
             
             // Show explanation
             explanationContainer.classList.add('show');
+            
+            // Close share options if open
+            shareOptions.classList.remove('show');
         }
 
         // Update statistics display
@@ -1470,4 +1809,3 @@
     </script>
 </body>
 </html>
-
