@@ -569,6 +569,7 @@
             margin-top: 20px;
             flex-wrap: wrap;
             gap: 15px;
+            position: relative;
         }
 
         .explanation {
@@ -628,7 +629,7 @@
             margin: 0 auto 15px;
         }
 
-        /* Share Button Styles */
+        /* Share Button Styles - FIXED */
         .share-container {
             position: relative;
             display: inline-block;
@@ -647,6 +648,8 @@
             gap: 8px;
             transition: all 0.3s ease;
             animation: pulse 2s infinite;
+            z-index: 10;
+            position: relative;
         }
 
         .share-btn:hover {
@@ -657,17 +660,19 @@
 
         .share-options {
             position: absolute;
-            top: 100%;
+            bottom: 100%; /* Changed from top: 100% to bottom: 100% */
             right: 0;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
             padding: 15px;
             min-width: 220px;
-            z-index: 100;
+            z-index: 1000;
             display: none;
             animation: fadeIn 0.3s ease;
-            margin-top: 10px;
+            margin-bottom: 10px; /* Changed from margin-top to margin-bottom */
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .share-options.show {
@@ -677,13 +682,14 @@
         .share-options::before {
             content: '';
             position: absolute;
-            top: -8px;
+            bottom: -8px; /* Changed from top: -8px to bottom: -8px */
             right: 20px;
             width: 0;
             height: 0;
             border-left: 8px solid transparent;
             border-right: 8px solid transparent;
-            border-bottom: 8px solid white;
+            border-top: 8px solid white; /* Changed from border-bottom to border-top */
+            border-bottom: none;
         }
 
         .share-option {
@@ -1127,13 +1133,6 @@
         </div>
     </div>
 
-    <!-- Hidden sharing form for better WhatsApp compatibility -->
-    <div style="display: none;">
-        <form id="whatsappShareForm" action="https://api.whatsapp.com/send" method="GET" target="_blank">
-            <input type="hidden" name="text" id="whatsappShareText">
-        </form>
-    </div>
-
     <script>
         // Page navigation functions
         function showHomePage() {
@@ -1183,8 +1182,6 @@
         const shareBtn = document.getElementById('shareBtn');
         const shareOptions = document.getElementById('shareOptions');
         const shareSuccess = document.getElementById('shareSuccess');
-        const whatsappShareForm = document.getElementById('whatsappShareForm');
-        const whatsappShareText = document.getElementById('whatsappShareText');
 
         // API endpoints
         const apiEndpoints = {
@@ -1222,12 +1219,25 @@
             // Toggle share options on button click
             shareBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                shareOptions.classList.toggle('show');
+                // Toggle the share options
+                const isShowing = shareOptions.classList.contains('show');
+                // Close all other share options first
+                document.querySelectorAll('.share-options').forEach(option => {
+                    option.classList.remove('show');
+                });
+                // Toggle this one
+                if (!isShowing) {
+                    shareOptions.classList.add('show');
+                }
+                
+                // Prevent the click from bubbling to document
+                e.stopPropagation();
             });
             
             // Handle share option clicks
             document.querySelectorAll('.share-option').forEach(option => {
-                option.addEventListener('click', function() {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     const shareType = this.getAttribute('data-type');
                     shareQuestion(shareType);
                     shareOptions.classList.remove('show');
@@ -1236,7 +1246,15 @@
             
             // Close share options when clicking outside
             document.addEventListener('click', function(e) {
+                // Check if click is outside share options and share button
                 if (!shareBtn.contains(e.target) && !shareOptions.contains(e.target)) {
+                    shareOptions.classList.remove('show');
+                }
+            });
+            
+            // Also close when pressing Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
                     shareOptions.classList.remove('show');
                 }
             });
@@ -1305,7 +1323,7 @@
         // Share question function with multiple fallback methods
         function shareQuestion(shareType) {
             if (!currentQuestion) {
-                showShareSuccess('No question to share!');
+                showShareSuccess('No question loaded yet!');
                 return;
             }
             
@@ -1443,6 +1461,9 @@
                 option.classList.remove('selected', 'correct', 'incorrect');
             });
             
+            // Close share options when loading new question
+            shareOptions.classList.remove('show');
+            
             try {
                 // Fetch question from API
                 const response = await fetch(apiEndpoints[currentTopic]);
@@ -1516,6 +1537,11 @@
             // Set explanation text
             explanationText.textContent = questionData.explanation || "No explanation available.";
             correctAnswerText.textContent = `Correct Answer: ${questionData.answer || "Not available"}`;
+            
+            // Enable share button immediately
+            shareBtn.disabled = false;
+            shareBtn.style.opacity = '1';
+            shareBtn.style.cursor = 'pointer';
         }
 
         // Handle option selection
@@ -1569,6 +1595,9 @@
             
             // Show explanation
             explanationContainer.classList.add('show');
+            
+            // Close share options if open
+            shareOptions.classList.remove('show');
         }
 
         // Update statistics display
