@@ -1199,72 +1199,89 @@
         }
 
         // Check if there's a direct link request
-        function checkForDirectLink() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const questionId = urlParams.get('qid');
-            
-            if (questionId) {
-                // Try to load from localStorage
-                const storedQuestion = localStorage.getItem(questionId);
-                if (storedQuestion) {
-                    try {
-                        const questionData = JSON.parse(storedQuestion);
-                        currentQuestion = questionData;
-                        currentTopic = questionData.topic || 'Random';
-                        currentQuestionId = questionId;
-                        
-                        // Update UI
-                        displayQuestion(questionData);
-                        
-                        // If question has answer, show it
-                        if (questionData.hasAnswer) {
-                            showAnswer(); // Automatically show answer for direct links
-                        }
-                        
-                        // Update stats
-                        questionCount++;
-                        updateStats();
-                        
-                        // Update topic selection
-                        selectTopic(currentTopic);
-                        
-                        return true;
-                    } catch (e) {
-                        console.error('Error loading stored question:', e);
-                    }
+      // Check if there's a direct link request
+function checkForDirectLink() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const questionId = urlParams.get('qid');
+    
+    if (questionId) {
+        // Try to load from localStorage
+        const storedQuestion = localStorage.getItem(questionId);
+        if (storedQuestion) {
+            try {
+                const questionData = JSON.parse(storedQuestion);
+                currentQuestion = questionData;
+                currentTopic = questionData.topic || 'Random';
+                currentQuestionId = questionId;
+                
+                // Update UI
+                displayQuestion(questionData);
+                
+                // If question has answer, show it
+                if (questionData.hasAnswer) {
+                    showAnswer(); // Automatically show answer for direct links
                 }
+                
+                // DON'T increment question count here!
+                // Update stats WITHOUT incrementing
+                updateStats(); // This will show existing counts
+                
+                // Update topic selection
+                selectTopic(currentTopic);
+                
+                return true;
+            } catch (e) {
+                console.error('Error loading stored question:', e);
             }
-            return false;
         }
+    }
+    return false;
+}
 
-        // Initialize the app when practice page loads
-        function initPracticePage() {
-            // Check for direct link first
-            const hasDirectLink = checkForDirectLink();
-            
-            if (!hasDirectLink) {
-                // Set up event listeners for topic selection
-                topicItems.forEach(item => {
-                    item.addEventListener('click', function() {
-                        const topic = this.getAttribute('data-topic');
-                        selectTopic(topic);
-                    });
-                });
-                
-                // Set up event listeners for buttons
-                showAnswerBtn.addEventListener('click', showAnswer);
-                nextQuestionBtn.addEventListener('click', loadQuestion);
-                
-                // Set up share functionality
-                initShareFunctionality();
-                
-                // Load initial question
-                loadQuestion();
-                
-                // Preload next question
-                setTimeout(preloadNextQuestion, 100);
-            }
-        }
+      // Initialize the app when practice page loads
+function initPracticePage() {
+    // Check for direct link first
+    const hasDirectLink = checkForDirectLink();
+    
+    if (!hasDirectLink) {
+        // Set up event listeners for topic selection
+        topicItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const topic = this.getAttribute('data-topic');
+                selectTopic(topic);
+            });
+        });
+        
+        // Set up event listeners for buttons
+        showAnswerBtn.addEventListener('click', showAnswer);
+        nextQuestionBtn.addEventListener('click', loadQuestion);
+        
+        // Set up share functionality
+        initShareFunctionality();
+        
+        // Load initial question - ONLY if NOT from direct link
+        loadQuestion();
+        
+        // Preload next question
+        setTimeout(preloadNextQuestion, 100);
+    } else {
+        // If we came from direct link, still set up event listeners
+        // but DON'T load another question
+        topicItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const topic = this.getAttribute('data-topic');
+                selectTopic(topic);
+            });
+        });
+        
+        showAnswerBtn.addEventListener('click', showAnswer);
+        nextQuestionBtn.addEventListener('click', loadQuestion);
+        initShareFunctionality();
+        
+        // Still preload next question for better UX
+        setTimeout(preloadNextQuestion, 100);
+    }
+}
 
         // Initialize share functionality
         function initShareFunctionality() {
@@ -1748,3 +1765,4 @@
     </script>
 </body>
 </html>
+
