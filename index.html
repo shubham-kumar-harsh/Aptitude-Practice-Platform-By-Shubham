@@ -1375,8 +1375,8 @@
             const topicName = getDisplayTopicName(currentTopic);
             const interactiveEmoji = getRandomInteractiveEmoji();
             
-            // Base URL for direct access
-            const baseUrl = window.location.origin + window.location.pathname;
+            // Base URL for the platform
+            const baseUrl = 'https://aptitude-practice-platform-by-shubh.vercel.app/';
             
             let shareText = '';
             let questionId = '';
@@ -1398,7 +1398,7 @@
                 }
                 
                 shareText += `\n💭 *What's your answer?* Reply with your choice!\n\n`;
-                shareText += `🔗 *Check answer later:* ${directLink}`;
+                shareText += `🔗 *Practice More:* ${directLink}`;
                 
             } else if (shareType === 'with-solution') {
                 // Share question + options + answer + explanation
@@ -1418,7 +1418,7 @@
                 
                 shareText += `\n✅ *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
                 shareText += `📖 *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
-                shareText += `🔗 *Practice more questions:* ${baseUrl}`;
+                shareText += `🔗 *Practice More:* ${directLink}`;
             }
             
             return shareText;
