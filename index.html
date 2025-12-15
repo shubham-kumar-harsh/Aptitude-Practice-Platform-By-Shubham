@@ -1198,60 +1198,6 @@
             return interactiveEmojis[Math.floor(Math.random() * interactiveEmojis.length)];
         }
 
-        // Generate a unique question ID
-        function generateQuestionId() {
-            return 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        // Store current question data for direct access
-        function storeQuestionForDirectAccess(questionData, includeAnswer = true) {
-            currentQuestionId = generateQuestionId();
-            
-            // Store in localStorage for direct access
-            const questionDataToStore = {
-                id: currentQuestionId,
-                question: questionData.question,
-                options: questionData.options || [],
-                answer: includeAnswer ? (questionData.answer || '') : '',
-                explanation: includeAnswer ? (questionData.explanation || '') : '',
-                topic: currentTopic,
-                timestamp: Date.now(),
-                hasAnswer: includeAnswer
-            };
-            
-            localStorage.setItem(currentQuestionId, JSON.stringify(questionDataToStore));
-            
-            // Cleanup old questions (keep only last 50)
-            cleanupOldQuestions();
-            
-            return currentQuestionId;
-        }
-
-        // Cleanup old questions from localStorage
-        function cleanupOldQuestions() {
-            const keys = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('q_')) {
-                    keys.push(key);
-                }
-            }
-            
-            // If we have more than 50 questions, remove the oldest ones
-            if (keys.length > 50) {
-                keys.sort((a, b) => {
-                    const dataA = JSON.parse(localStorage.getItem(a));
-                    const dataB = JSON.parse(localStorage.getItem(b));
-                    return dataA.timestamp - dataB.timestamp;
-                });
-                
-                // Remove the oldest ones
-                for (let i = 0; i < keys.length - 50; i++) {
-                    localStorage.removeItem(keys[i]);
-                }
-            }
-        }
-
         // Check if there's a direct link request
         function checkForDirectLink() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -1375,17 +1321,13 @@
             const topicName = getDisplayTopicName(currentTopic);
             const interactiveEmoji = getRandomInteractiveEmoji();
             
-            // Base URL for the platform
-            const baseUrl = 'https://aptitude-practice-platform-by-shubh.vercel.app/';
+            // Base URL for the platform (just the main URL)
+            const platformUrl = 'https://aptitude-practice-platform-by-shubh.vercel.app/';
             
             let shareText = '';
-            let questionId = '';
             
             if (shareType === 'question-only') {
                 // Share question + options without answer
-                questionId = storeQuestionForDirectAccess(currentQuestion, false);
-                const directLink = `${baseUrl}?qid=${questionId}`;
-                
                 shareText = `${interactiveEmoji} *Aptitude Challenge!* ${interactiveEmoji}\n\n`;
                 shareText += `📚 *Topic:* ${topicName}\n\n`;
                 shareText += `❓ *Question:* ${currentQuestion.question}\n\n`;
@@ -1398,13 +1340,10 @@
                 }
                 
                 shareText += `\n💭 *What's your answer?* Reply with your choice!\n\n`;
-                shareText += `🔗 *Practice More:* ${directLink}`;
+                shareText += `🔗 *Practice More:* ${platformUrl}`;
                 
             } else if (shareType === 'with-solution') {
                 // Share question + options + answer + explanation
-                questionId = storeQuestionForDirectAccess(currentQuestion, true);
-                const directLink = `${baseUrl}?qid=${questionId}`;
-                
                 shareText = `📚 *Aptitude Question with Solution* 📚\n\n`;
                 shareText += `📖 *Topic:* ${topicName}\n\n`;
                 shareText += `❓ *Question:* ${currentQuestion.question}\n\n`;
@@ -1418,7 +1357,7 @@
                 
                 shareText += `\n✅ *Correct Answer:* ${currentQuestion.answer || 'Not available'}\n\n`;
                 shareText += `📖 *Explanation:*\n${currentQuestion.explanation || 'No explanation available.'}\n\n`;
-                shareText += `🔗 *Practice More:* ${directLink}`;
+                shareText += `🔗 *Practice More:* ${platformUrl}`;
             }
             
             return shareText;
